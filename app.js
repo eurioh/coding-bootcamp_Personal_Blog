@@ -3,15 +3,14 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
-const _=require("lodash");
+const _ = require("lodash");
+const mongoose = require("mongoose");
 
 const homeStartingContent = "Lacus vel facilisis volutpat est velit";
 const aboutContent = "Hac habitasse platea dictumst vestibulum";
 const contactContent = "Scelerisque eleifend donec pretium vulputate sapien";
 
 const app = express();
-
-
 
 app.set("view engine", "ejs");
 
@@ -20,14 +19,25 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(express.static("public"));
 
-let postsArray = [];
+
+mongoose.connect("mongodb://localhost:27017/blogDB", {
+    useUnifiedTopology: true
+});
+
+const postSchema = {
+    title: String,
+    content: String
+};
+
+const Post = mongoose.model("Post", postSchema);
 
 app.get("/", function (req, res) {
-    res.render("home", {
-        startingContent: homeStartingContent,
-        posts: postsArray
+    Post.find({}, function(err, posts){
+        res.render("home", {
+            startingContent: homeStartingContent,
+            posts: posts
+        });    
     });
-    console.log(postsArray);
 });
 
 app.get("/about", function (req, res) {
@@ -46,50 +56,33 @@ app.get("/compose", function (req, res) {
     res.render("compose");
 });
 
-
-
 app.post("/compose", function (req, res) {
 
     let text = req.body.postTitle;
     let contentText = req.body.postContent;
 
-    const post = {
+    const post = new Post({
         title: text,
         content: contentText
-    };
+    });
 
-    // for (var i = 0; i < posts.length(); i++) {
-    //     // post=[i];
-
-    // }
-
-    postsArray.push(post);
-    res.redirect("/");
-
+    post.save(function (err) {
+        if (!err) {
+            res.redirect("/");
+        }
+    });
 });
 
 app.get("/posts/:postName", function (req, res) {
     const requesedTitle = _.lowerCase(req.params.postName);
 
-
-    postsArray.forEach(function(post) {
-        const storedTitle = _.lowerCase(post.title);
-    
-
-        if (storedTitle === requesedTitle) {
-           
-            res.render("post", {
-                postTitle: post.title,
-                postContent: post.content 
-
-            });
-        }
+    Post.findOne({_id: requesedTitle}, function (err, post) {
+        res.render("post", {
+            postTitle: post.title,
+            postContent: post.content
+        });
     });
-
-    
 });
-
-
 
 app.listen(3000, function () {
     console.log("Server started on port 3000");
